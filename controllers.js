@@ -1,13 +1,17 @@
 import e from "express";
 import { conn } from "./db.js";
+import { logger } from "./logger.js";
 
 const healthCheck = (req, res) => {
     conn.query('select 1', (err, rows) => {
         if (err) {
-            console.log(err);
+            logger.log(err);
             return res.status(500).json({ msg: "Internal Server Error" });
         }
-        else return res.json(rows[0]);
+        else {
+            logger.info("health check");
+            return res.json(rows[0])
+        }
     })
 }
 
@@ -15,9 +19,10 @@ const getAllEmployees = (_, res) => {
     let query = 'select * from employees';
     conn.query(query, (err, rows) => {
         if (err) {
-            console.log(err);
+            logger.log(err);
             return res.status(500).json({ msg: "Internal Server Error" });
         }
+        logger.info("successful serving GET /employees route")
         return res.status(200).json(rows);
     })
 }
@@ -28,13 +33,15 @@ const getEmployeeById = (req, res) => {
     let vals = [id];
     conn.query(query, vals, (err, rows) => {
         if (err) {
-            console.log(err);
+            logger.log(err);
             return res.status(500).json({ msg: "Internal Server Error" });
         }
         console.log(rows);
         if (rows[0]) {
+            logger.info(`successful serving GET /employees/${id} route`)
             return res.json(rows[0]);
         }
+        logger.warn(`Employee with id ${id} not found for GET /employees/:id route`);
         return res.status(200).json({ msg: `No Entries found for id ${id}` });
     })
 }
@@ -45,7 +52,7 @@ const addEmployee = (req, res) => {
     let vals = [name, designation, yoe, salary];
     conn.query(query, vals, (err, rows) => {
         if (err) {
-            console.log(err);
+            logger.log(err);
             return res.status(500).json({ msg: "Internal Server Error" });
         }
         console.log(rows.affectedRows);
@@ -53,12 +60,14 @@ const addEmployee = (req, res) => {
         if (rows.affectedRows === 1) {
             conn.query('select * from employees where id=?', [id], (err2, rows2) => {
                 if (err2) {
-                    console.log(err2);
+                    logger.log(err2);
                     return res.status(500).json({ msg: "Internal Server Error" });
                 }
+                logger.info("successful serving POST /employees route")
                 return res.status(201).json({ msg: `Employee added successfully!`, employee: rows2[0] })
             })
         } else {
+            logger.warn(`Employee not added for POST /employees route`);
             return res.status(500).json({ msg: "Employee not added!" });
         }
     });
@@ -70,18 +79,20 @@ const updateEmployeeById = (req, res) => {
     let vals = [name, designation, yoe, salary, id];
     conn.query(query, vals, (err, rows) => {
         if (err) {
-            console.log(err);
+            logger.log(err);
             return res.status(500).json({ msg: "Internal Server Error" });
         }
         if (rows.affectedRows === 1) {
             conn.query('select * from employees where id=?', [id], (err2, rows2) => {
                 if (err2) {
-                    console.log(err2);
+                    logger.log(err2);
                     return res.status(500).json({ msg: "Internal Server Error" });
                 }
+                logger.info(`successful serving PUT /employees/${id} route`)
                 return res.status(200).json({ msg: `Employee updated successfully!`, employee: rows2[0] })
             })
         } else {
+            logger.warn(`Employee with id ${id} not found for PUT /employees/${id} route`);
             return res.status(404).json({ msg: `Employee with id ${id} not found!` });
         }
     })
@@ -93,12 +104,14 @@ const removeEmployeeById = (req, res) => {
     let vals = [id];
     conn.query(query, vals, (err, rows) => {
         if (err) {
-            console.log(err);
+            logger.log(err);
             return res.status(500).json({ msg: "Internal Server Error" });
         }
         if (rows.affectedRows === 1) {
+            logger.info(`successful serving DELETE /employees/${id} route`)
             return res.status(200).json({ msg: `Employee with id ${id} deleted!` });
         }
+        logger.warn(`Employee with id ${id} not found for DELETE /employees/${id} route`);
         return res.status(404).json({ msg: `Employee with id ${id} not found!` });
     })
 }
@@ -109,6 +122,7 @@ const patchEmployeeById = (req, res) => {
     yoe = parseInt(yoe);
     salary = parseInt(salary);
     if (!name && !designation && (isNaN(yoe) || yoe == null) && (isNaN(salary) || salary == null)) {
+        logger.error(`No data to update`);
         return res.status(400).json({ msg: "Nothing to update", possibleFields: ["name", "designation", "yoe", "salary"] });
     }
     yoe = parseInt(yoe);
@@ -159,6 +173,7 @@ const patchEmployeeById = (req, res) => {
         }
     }
     if (Object.keys(currErrors).length !== 0) {
+        logger.error(currErrors);
         return res.status(400).json({ errors: currErrors });
     }
     query = query.slice(0, -2);
@@ -167,15 +182,16 @@ const patchEmployeeById = (req, res) => {
     console.log("query :", query, "\nvals :", vals);
     conn.query(query, vals, (err, rows) => {
         if (err) {
-            console.log(err);
+            logger.log(err);
             return res.status(500).json({ msg: "Internal Server Error" });
         }
         if (rows.affectedRows === 1) {
             conn.query('select * from employees where id=?', [id], (err2, rows2) => {
                 if (err2) {
-                    console.log(err2);
+                    logger.log(err2);
                     return res.status(500).json({ msg: "Internal Server Error" });
                 }
+                logger.info(`successful serving PATCH /employees/${id} route`, { updatedVals });
                 return res.status(200).json({ msg: `Employee updated successfully!`, updatedVals, employee: rows2[0] })
             })
         } else {

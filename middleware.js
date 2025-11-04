@@ -1,8 +1,11 @@
+import { logger } from "./logger.js";
+
 const validate = (...vals) => {
     return (req, res, next) => {
         if (vals.includes("id")) {
             const id = parseInt(req.params.id);
             if (isNaN(id)) {
+                logger.error(`Invalid id for ${id}`);
                 return res.status(400).json({ msg: "Invalid id" });
             }
             res.locals.id = id;
@@ -12,6 +15,7 @@ const validate = (...vals) => {
             yoe = parseInt(yoe);
             salary = parseInt(salary);
             if (!name || !designation || yoe == null || salary == null) {
+                logger.error(`Required fields not filled`);
                 return res.status(400).json({ msg: "Fill all fields!", required: ["name", "designation", "yoe", "salary"] });
             }
             let nameLen = name.length;
@@ -30,6 +34,7 @@ const validate = (...vals) => {
                 currErrors.designation = "Designation length should be less than 50 chars";
             }
             if (Object.keys(currErrors).length !== 0) {
+                logger.error({currErrors, url: req.originalUrl, method: req.method});
                 return res.status(400).json({ errors: currErrors });
             }
             res.locals.name = name;
